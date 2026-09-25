@@ -1,0 +1,7 @@
+# Dependencias de LogicPad
+#
+# Interfaz gráfica
+PySide6>=6.5
+
+# Tests (opcional para uso normal, necesario solo para desarrollo)
+pytest>=7.4
