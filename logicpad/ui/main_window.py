@@ -15,6 +15,7 @@ from ui.editor import EditorWidget
 from ui.proof_pad import ProofPadWidget
 from ui.start_screen import StartScreen
 from utils.shortcuts import SHORTCUT_HELP
+from utils.symbols import CATEGORY_LABELS, symbols_by_category
 
 APP_TITLE = "LogicPad"
 
@@ -162,7 +163,27 @@ class MainWindow(QMainWindow):
         lines = ["Escritura rápida de símbolos lógicos:\n"]
         for ascii_seq, symbol, description in SHORTCUT_HELP:
             lines.append(f"  {ascii_seq:<10} →  {symbol}    {description}")
-        QMessageBox.information(self, "Atajos de escritura lógica", "\n".join(lines))
+
+        grouped = symbols_by_category()
+        for category in ("quantifiers", "sets"):
+            category_symbols = grouped.get(category, [])
+            if not category_symbols:
+                continue
+            lines.append("")
+            lines.append(f"{CATEGORY_LABELS.get(category, category)} (comandos estilo LaTeX):\n")
+            for sym in category_symbols:
+                lines.append(f"  {sym.command:<12} →  {sym.unicode}    {sym.name}")
+
+        lines.append("")
+        lines.append(
+            "Los comandos que empiezan por '\\' se convierten en cuanto se "
+            "completan. Los que pueden ser el inicio de otro comando más largo "
+            "(como \\subset, prefijo de \\subseteq) se convierten en cuanto "
+            "escribes un espacio u otro carácter que no sea una letra —igual "
+            "que en LaTeX. También puedes insertarlos con el botón «Símbolos» "
+            "del Editor."
+        )
+        QMessageBox.information(self, "Atajos de escritura lógica y símbolos", "\n".join(lines))
 
     def _show_about(self) -> None:
         QMessageBox.information(

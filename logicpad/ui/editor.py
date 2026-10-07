@@ -25,7 +25,8 @@ from PySide6.QtWidgets import (
 )
 
 from models.document import Document, DocumentError, FILE_EXTENSION
-from utils.quick_entry import find_completed_shortcut
+from ui.widgets import SymbolPickerButton
+from utils.quick_entry import find_command_before_delimiter, find_completed_shortcut
 
 
 class LogicTextEdit(QPlainTextEdit):
@@ -47,23 +48,45 @@ class LogicTextEdit(QPlainTextEdit):
         text = event.text()
         if not text:
             return
-        self._maybe_convert_shortcut()
+        self._maybe_convert_shortcut(text)
 
-    def _maybe_convert_shortcut(self) -> None:
+    def _maybe_convert_shortcut(self, typed_char: str) -> None:
         cursor = self.textCursor()
         block_text = cursor.block().text()
         pos_in_block = cursor.positionInBlock()
         text_before_cursor = block_text[:pos_in_block]
 
         match = find_completed_shortcut(text_before_cursor)
-        if match is None:
+        if match is not None:
+            seq, symbol = match
+            self._replace_before_cursor(len(seq), 0, symbol)
             return
-        seq, symbol = match
+
+        if typed_char.isalpha():
+            return  # podría seguir formando parte de un comando más largo
+
+        result = find_command_before_delimiter(text_before_cursor)
+        if result is None:
+            return
+        command, symbol, gobble = result
+        remove_length = len(command) + (1 if gobble else 0)
+        keep_tail = 0 if gobble else 1
+        self._replace_before_cursor(remove_length, keep_tail, symbol)
+
+    def _replace_before_cursor(self, remove_length: int, keep_tail: int, replacement: str) -> None:
+        """Reemplaza ``remove_length`` caracteres que terminan
+        ``keep_tail`` posiciones antes del cursor actual por
+        ``replacement`` (``keep_tail`` permite dejar intacto, por
+        ejemplo, un delimitador que no debe "engullirse")."""
+
+        cursor = self.textCursor()
+        end = cursor.position() - keep_tail
+        start = end - remove_length
 
         replace_cursor = self.textCursor()
-        replace_cursor.setPosition(cursor.position() - len(seq))
-        replace_cursor.setPosition(cursor.position(), QTextCursor.KeepAnchor)
-        replace_cursor.insertText(symbol)
+        replace_cursor.setPosition(start)
+        replace_cursor.setPosition(end, QTextCursor.KeepAnchor)
+        replace_cursor.insertText(replacement)
 
     def set_plain_text_silently(self, text: str) -> None:
         """Establece el contenido sin disparar la conversión de escritura
@@ -88,6 +111,15 @@ class EditorWidget(QWidget):
         layout.setContentsMargins(8, 8, 8, 8)
         layout.setSpacing(6)
 
+        self.text_edit = LogicTextEdit()
+        self.text_edit.setPlaceholderText(
+            "Escribe tus apuntes aquí. Usa !, &&, ||, ^, ->, <->, <=> para "
+            "símbolos lógicos, y \\forall, \\exists, \\in, \\cup, \\cap... "
+            "para cuantificadores y conjuntos (o el botón «Símbolos»).\n\n"
+            "Ejemplo: Ley de De Morgan:  !(p && q) <=> !p || !q\n"
+            "Ejemplo: \\forall x \\in A \\cup B"
+        )
+
         toolbar = QHBoxLayout()
         self.btn_new = QPushButton("Nuevo")
         self.btn_open = QPushButton("Abrir…")
@@ -96,15 +128,10 @@ class EditorWidget(QWidget):
         for btn in (self.btn_new, self.btn_open, self.btn_save, self.btn_save_as):
             btn.setFlat(True)
             toolbar.addWidget(btn)
+        self.symbol_picker = SymbolPickerButton(self.text_edit)
+        toolbar.addWidget(self.symbol_picker)
         toolbar.addStretch(1)
         layout.addLayout(toolbar)
-
-        self.text_edit = LogicTextEdit()
-        self.text_edit.setPlaceholderText(
-            "Escribe tus apuntes aquí. Usa !, &&, ||, ^, ->, <->, <=> para "
-            "introducir símbolos lógicos automáticamente.\n\n"
-            "Ejemplo: Ley de De Morgan:  !(p && q) <=> !p || !q"
-        )
         layout.addWidget(self.text_edit, 1)
 
         self.btn_new.clicked.connect(self.new_document)

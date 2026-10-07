@@ -73,7 +73,7 @@ logicpad/
 │   ├── editor.py             # Modo Editor
 │   ├── calculator.py         # Modo Calculadora lógica
 │   ├── proof_pad.py          # Modo LogicPad (argumentos)
-│   └── widgets.py            # Widgets Qt reutilizables (LogicLineEdit)
+│   └── widgets.py            # Widgets Qt reutilizables (LogicLineEdit, SymbolPickerButton)
 │
 ├── logic/                   # Motor lógico — SIN dependencias de PySide6
 │   ├── tokens.py              # Tipos de token y tablas de símbolos
@@ -90,8 +90,11 @@ logicpad/
 │   └── document.py           # Modelo de documento (.logicpad, JSON)
 │
 ├── utils/
-│   ├── quick_entry.py         # Lógica pura de conversión ASCII -> Unicode
-│   └── shortcuts.py           # Tabla de atajos de escritura rápida
+│   ├── quick_entry.py         # Lógica pura de conversión de escritura rápida
+│   ├── shortcuts.py           # Tabla de atajos de lógica (heredada) + ayuda
+│   └── symbols.py             # Registro de símbolos por categoría (lógica,
+│                               # cuantificadores, conjuntos...) — única fuente
+│                               # de verdad para conversión, selector y ayuda
 │
 └── tests/
     ├── test_lexer.py
@@ -100,7 +103,8 @@ logicpad/
     ├── test_truth_table.py
     ├── test_equivalence.py
     ├── test_simplifier.py
-    └── test_argument.py
+    ├── test_argument.py
+    └── test_quick_entry.py    # Atajos heredados + comandos \forall, \in, \cup...
 ```
 
 **(\*) Nota sobre `ast_nodes.py`:** el diseño original sugería llamar a
@@ -157,7 +161,74 @@ diseño para poder distinguir sin ambigüedad variables de constantes.
 
 ---
 
-## 4. Precedencia y asociatividad de operadores
+## 4. Símbolos de cuantificadores y teoría de conjuntos
+
+Además de los atajos de puntuación de la sección anterior, LogicPad
+admite una **sintaxis de comandos inspirada en LaTeX** (pero sin
+pretender ser un parser LaTeX) para cuantificadores y teoría de
+conjuntos. Se escriben con una contrabarra seguida del nombre del
+comando:
+
+| Comando     | Resultado | Significado           |
+| ----------- | --------- | ---------------------- |
+| `\forall`   | ∀         | Para todo              |
+| `\exists`   | ∃         | Existe                 |
+| `\in`       | ∈         | Pertenece              |
+| `\notin`    | ∉         | No pertenece           |
+| `\cup`      | ∪         | Unión                  |
+| `\cap`      | ∩         | Intersección           |
+| `\subset`   | ⊂         | Subconjunto            |
+| `\subseteq` | ⊆         | Subconjunto o igual    |
+| `\supset`   | ⊃         | Superconjunto          |
+| `\supseteq` | ⊇         | Superconjunto o igual  |
+| `\setminus` | ∖         | Diferencia             |
+| `\emptyset` | ∅         | Conjunto vacío         |
+| `\times`    | ×         | Producto cartesiano    |
+
+Estos comandos pertenecen a un sistema **deliberadamente separado**
+del de la sección anterior: no reutilizan ni reasignan `|`, `||` ni
+ningún otro carácter de puntuación ya usado por la lógica
+proposicional, precisamente para que `|` pueda seguir significando
+"tal que" en una definición por comprensión como `{x ∈ ℕ | x < 5}`
+sin ambigüedad con el `||` de disyunción.
+
+**Cuándo se convierte cada comando.** La mayoría se convierte en
+cuanto se completa, igual que `!`, `&&`, etc. Sin embargo, `\subset`
+es, letra a letra, el principio de `\subseteq` (y `\supset` lo es de
+`\supseteq`): si `\subset` se convirtiera en cuanto se completa, sería
+imposible escribir `\subseteq`. Por eso estos dos casos concretos
+esperan a que se escriba un delimitador (un espacio, un paréntesis, un
+operador, otra contrabarra...) que confirme que el comando no va a
+seguir extendiéndose, exactamente igual que el final de un nombre de
+macro en LaTeX. Si el delimitador es un espacio, se consume junto con
+el comando (`A \subset B` → `A ⊂B`); cualquier otro delimitador se
+conserva (`\subset(` → `⊂(`). Esta comprobación de ambigüedad se
+calcula automáticamente comparando toda la tabla de comandos, así que
+añadir un comando nuevo en el futuro que resulte ser prefijo de otro
+se gestiona solo, sin tocar el motor de conversión (ver
+`utils/quick_entry.py` y `utils/symbols.py`).
+
+**Botón «Símbolos» del Editor.** Además de escribir los comandos a
+mano, el Editor tiene un botón «Símbolos ▾» con un menú organizado en
+las categorías *Lógica*, *Cuantificadores* y *Conjuntos*; seleccionar
+una entrada la inserta en la posición actual del cursor sin afectar al
+resto del documento.
+
+**Arquitectura.** Todos los símbolos (los heredados de lógica y los
+nuevos) están centralizados en una única tabla de datos,
+`utils/symbols.py`, con un `Symbol` por entrada (`command`, `unicode`,
+`name`, `category`). Añadir un símbolo nuevo, o una categoría
+matemática completa (relaciones, funciones, álgebra...) pensada para
+el futuro, consiste en añadir entradas a esa tabla: ni el motor de
+conversión ni el selector de símbolos ni el diálogo de ayuda necesitan
+cambios de código. Este sistema de comandos es puramente de
+*notación* para el Editor: no forma parte de la gramática que entiende
+la Calculadora (`logic/parser.py`), que deliberadamente sigue
+limitada a lógica proposicional por ahora.
+
+---
+
+## 5. Precedencia y asociatividad de operadores
 
 De mayor a menor prioridad de "unión":
 
@@ -181,9 +252,9 @@ forma explícita):
 
 ---
 
-## 5. Los tres modos de trabajo
+## 6. Los tres modos de trabajo
 
-### 5.1. Editor
+### 6.1. Editor
 
 Editor de texto sencillo para apuntes que mezclan texto normal y
 expresiones lógicas, con conversión automática de escritura rápida.
@@ -191,7 +262,7 @@ Permite crear, abrir y guardar documentos en el formato propio
 `.logicpad` (JSON internamente), además de las operaciones básicas de
 edición (deshacer/rehacer, copiar/pegar, seleccionar).
 
-### 5.2. Calculadora lógica
+### 6.2. Calculadora lógica
 
 Tres pestañas:
 
@@ -206,7 +277,7 @@ Tres pestañas:
   determina formalmente (por tabla de verdad) si son lógicamente
   equivalentes, mostrando un contraejemplo si no lo son.
 
-### 5.3. LogicPad (modo avanzado)
+### 6.3. LogicPad (modo avanzado)
 
 Permite escribir un argumento completo (premisas + conclusión) y
 comprobar su validez formal. Se admiten dos formatos de entrada:
@@ -233,7 +304,7 @@ tabla de verdad.
 
 ---
 
-## 6. Simplificador: reglas implementadas
+## 7. Simplificador: reglas implementadas
 
 El simplificador trabaja sobre el AST (nunca sobre texto) y aplica
 reglas repetidamente hasta alcanzar un punto fijo. Reglas incluidas en
@@ -267,7 +338,7 @@ siendo equivalente a la expresión original.
 
 ---
 
-## 7. Formato de archivo `.logicpad`
+## 8. Formato de archivo `.logicpad`
 
 Formato JSON sencillo y extensible:
 
@@ -288,14 +359,14 @@ exactamente lo que se veía al guardarlo.
 
 ---
 
-## 8. Decisiones de diseño menores (no especificadas explícitamente)
+## 9. Decisiones de diseño menores (no especificadas explícitamente)
 
 Estas decisiones se han tomado siguiendo el criterio técnicamente más
 razonable, tal y como pedía el encargo, y se documentan aquí de forma
 resumida (los detalles están en los docstrings de cada módulo):
 
 * Archivo `ast_nodes.py` en lugar de `ast.py` (ver sección 2).
-* Asociatividad de cada operador (ver sección 4).
+* Asociatividad de cada operador (ver sección 5).
 * Variables restringidas a minúsculas; `T`/`F` y `⊤`/`⊥` reservados
   para las constantes lógicas verdadero/falso.
 * La conversión de escritura rápida ocurre de forma inmediata al
@@ -307,10 +378,19 @@ resumida (los detalles están en los docstrings de cada módulo):
   carpetas sugerida) para mantener la lógica de interpretación y
   validación de argumentos separada de la interfaz, igual que el
   resto de `logic/`.
+* Los comandos de cuantificadores/conjuntos (`\forall`, `\in`...) son
+  puramente de notación del Editor y NO se han añadido al lexer/parser
+  de `logic/` (que sigue limitado a lógica proposicional): así se
+  evita construir un parser matemático completo antes de tiempo (ver
+  sección 4) y el motor de la Calculadora queda intacto.
+* `\subset`/`\supset` necesitan un delimitador para convertirse, al
+  ser prefijo de `\subseteq`/`\supseteq`; esto se detecta
+  automáticamente comparando la tabla de comandos, no está
+  "hardcodeado" (ver sección 4 y `utils/quick_entry.py`).
 
 ---
 
-## 9. Extensiones futuras (no implementadas en esta primera versión)
+## 10. Extensiones futuras (no implementadas en esta primera versión)
 
 La arquitectura está pensada para poder añadir progresivamente, sin
 reescribir lo existente:
@@ -322,9 +402,20 @@ reescribir lo existente:
 * Exportación de tablas de verdad (CSV, imagen...).
 * Documentos con formato (negrita, títulos...).
 * Modo oscuro.
-* Personalización de los atajos de escritura rápida (la tabla ya está
-  centralizada en `utils/shortcuts.py`, pensada para poder cargarse
-  desde un archivo de configuración de usuario).
+* Personalización de los atajos de escritura rápida y de los comandos
+  (la tabla ya está centralizada en `utils/symbols.py`, pensada para
+  poder cargarse desde un archivo de configuración de usuario).
+* Nuevas categorías matemáticas (relaciones, funciones, álgebra,
+  cálculo...): basta con añadir símbolos nuevos a `utils/symbols.py`
+  con su propia categoría; el selector, la ayuda y la conversión de
+  escritura rápida los recogen automáticamente.
+* Un parser y evaluador de expresiones de conjuntos (más allá de la
+  notación), diagramas de Venn, y ejercicios interactivos — fuera del
+  alcance de esta actualización a propósito.
+* Autocompletado real de comandos mientras se escribe `\cu`, `\su`...
+  (por ahora la conversión es solo de sustitución; el diseño de
+  `utils/symbols.py` ya deja los datos listos — nombre, categoría — para
+  cuando se aborde el autocompletado).
 * Historial de expresiones recientes.
 * Guardado de "proyectos" (varios documentos agrupados).
 * Más conectores lógicos.
