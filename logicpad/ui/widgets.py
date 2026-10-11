@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from PySide6.QtWidgets import QLineEdit, QMenu, QPlainTextEdit, QToolButton
 
-from utils.quick_entry import find_command_before_delimiter, find_completed_shortcut
+from utils.quick_entry import LOGIC_CONVERTER, QuickEntryConverter
 from utils.symbols import CATEGORY_LABELS, symbols_by_category
 
 
@@ -16,10 +16,19 @@ class LogicLineEdit(QLineEdit):
     ``->``, ``<->``, ``<=>``) y los comandos estilo LaTeX de
     cuantificadores y conjuntos (``\\forall``, ``\\in``, ``\\cup``...)
     a símbolos Unicode mientras el usuario escribe.
+
+    Admite un ``converter`` alternativo (ver
+    ``utils.quick_entry.QuickEntryConverter``) para campos con una
+    tabla de atajos de puntuación distinta — por ejemplo, el campo de
+    expresiones matemáticas usa ``MATH_CONVERTER``, que NO convierte
+    ``^`` a ``⊕`` porque ahí ``^`` significa "potencia", no "XOR".
+    Si no se indica, se usa el conversor de lógica de siempre, con lo
+    que el comportamiento por defecto no cambia.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, converter: QuickEntryConverter = LOGIC_CONVERTER, **kwargs):
         super().__init__(*args, **kwargs)
+        self._converter = converter
         self.setPlaceholderText("p -> q   (o pega directamente p → q)")
 
     def keyPressEvent(self, event) -> None:  # noqa: N802 (Qt naming)
@@ -33,7 +42,7 @@ class LogicLineEdit(QLineEdit):
         cursor_pos = self.cursorPosition()
         text_before = self.text()[:cursor_pos]
 
-        match = find_completed_shortcut(text_before)
+        match = self._converter.find_completed_shortcut(text_before)
         if match is not None:
             seq, symbol = match
             self._replace_range(cursor_pos - len(seq), cursor_pos, symbol)
@@ -42,7 +51,7 @@ class LogicLineEdit(QLineEdit):
         if typed_char.isalpha():
             return  # podría seguir formando parte de un comando más largo
 
-        result = find_command_before_delimiter(text_before)
+        result = self._converter.find_command_before_delimiter(text_before)
         if result is None:
             return
         command, symbol, gobble = result

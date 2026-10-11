@@ -1,7 +1,7 @@
 """
 Modo Calculadora lógica.
 
-Organizado en tres pestañas:
+Organizado en cuatro pestañas:
 
 * **Evaluar y tabla de verdad**: analiza una expresión, detecta sus
   variables, permite evaluarla con valores concretos y generar su
@@ -12,9 +12,16 @@ Organizado en tres pestañas:
   las reglas de equivalencia aplicadas.
 * **Comprobar equivalencia**: compara dos expresiones y determina si
   son lógicamente equivalentes, mediante tabla de verdad.
+* **Expresiones y funciones**: aritmética, comparaciones, conjuntos,
+  cuantificadores y definición/evaluación de funciones (ver
+  ``mathexpr/``). Es una gramática deliberadamente distinta e
+  independiente de las tres pestañas anteriores (que siguen limitadas
+  a lógica proposicional pura); ver el README para la justificación.
 """
 
 from __future__ import annotations
+
+import html
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -38,7 +45,12 @@ from logic.lexer import LexerError
 from logic.parser import ParserError, parse
 from logic.simplifier import simplify
 from logic.truth_table import generate_truth_table
-from ui.widgets import LogicLineEdit
+from mathexpr.evaluator import MathEvaluationError
+from mathexpr.lexer import MathLexerError
+from mathexpr.parser import MathParserError
+from mathexpr.session import Session
+from ui.widgets import LogicLineEdit, SymbolPickerButton
+from utils.quick_entry import MATH_CONVERTER
 
 ERROR_STYLE = "color: #b3261e;"
 OK_STYLE = "color: #1e6b34;"
@@ -356,6 +368,121 @@ class EquivalenceTab(QWidget):
         self.table_widget.resizeColumnsToContents()
 
 
+EXPRESSIONS_HELP_TEXT = (
+    "Escribe una línea y pulsa Intro o «Evaluar». Puedes definir funciones y "
+    "variables/conjuntos, y luego usarlos en líneas siguientes:\n\n"
+    "  f(x) = x^2 + 1        (define una función)\n"
+    "  f(3)                  → 10\n"
+    "  f(2) > f(1)            → Verdadero\n"
+    "  S = {1, 2, 3}         (define un conjunto)\n"
+    "  f(S)                  → {1, 4, 9}   (aplica f a cada elemento)\n"
+    "  x < y -> f(x) < f(y)   (expresión suelta, sin definir nada)\n\n"
+    "Todavía NO se evalúan: cuantificadores sin cuerpo (escribe "
+    "'∀x ∈ A, x > 0', no '∀x ∈ A' sola), funciones de más de un "
+    "parámetro, ni comparaciones encadenadas (a < b < c)."
+)
+
+
+class ExpressionsTab(QWidget):
+    """Aritmética, comparaciones, conjuntos, cuantificadores acotados y
+    definición/evaluación de funciones (ver ``mathexpr/``).
+
+    A diferencia de las otras pestañas, mantiene una **sesión** (una
+    :class:`mathexpr.session.Session`): las funciones y variables que
+    se definen en una línea siguen disponibles en las siguientes,
+    hasta que se pulsa «Reiniciar sesión». El historial muestra, para
+    cada línea introducida, el resultado o el error correspondiente,
+    manteniendo clara la separación entre lo escrito, la evaluación y
+    el resultado.
+    """
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._session = Session()
+
+        layout = QVBoxLayout(self)
+
+        intro = QLabel(
+            "Expresiones matemáticas: aritmética, comparaciones, conjuntos, "
+            "cuantificadores y funciones."
+        )
+        intro.setWordWrap(True)
+        layout.addWidget(intro)
+
+        input_row = QHBoxLayout()
+        self.expr_input = LogicLineEdit(converter=MATH_CONVERTER)
+        self.expr_input.setPlaceholderText("f(x) = x^2 + 1   /   f(3)   /   S = {1, 2, 3}   /   f(S)")
+        self.evaluate_btn = QPushButton("Evaluar")
+        self.symbol_picker = SymbolPickerButton(self.expr_input)
+        input_row.addWidget(QLabel("Línea:"))
+        input_row.addWidget(self.expr_input, 1)
+        input_row.addWidget(self.symbol_picker)
+        input_row.addWidget(self.evaluate_btn)
+        layout.addLayout(input_row)
+
+        self.error_label = QLabel("")
+        self.error_label.setStyleSheet(ERROR_STYLE)
+        self.error_label.setWordWrap(True)
+        layout.addWidget(self.error_label)
+
+        history_box = QGroupBox("Historial de la sesión")
+        history_layout = QVBoxLayout(history_box)
+        self.history_view = QTextEdit()
+        self.history_view.setReadOnly(True)
+        history_layout.addWidget(self.history_view)
+        layout.addWidget(history_box, 1)
+
+        bottom_row = QHBoxLayout()
+        self.reset_btn = QPushButton("Reiniciar sesión")
+        bottom_row.addWidget(self.reset_btn)
+        bottom_row.addStretch(1)
+        layout.addLayout(bottom_row)
+
+        help_label = QLabel(EXPRESSIONS_HELP_TEXT)
+        help_label.setWordWrap(True)
+        help_label.setStyleSheet("color: #5f6368;")
+        layout.addWidget(help_label)
+
+        self.evaluate_btn.clicked.connect(self._evaluate)
+        self.expr_input.returnPressed.connect(self._evaluate)
+        self.reset_btn.clicked.connect(self._reset_session)
+
+    def _evaluate(self) -> None:
+        text = self.expr_input.text().strip()
+        self.error_label.setText("")
+        if not text:
+            return
+
+        try:
+            result = self._session.run(text)
+        except (MathLexerError, MathParserError, MathEvaluationError) as exc:
+            self._append_history(text, str(exc), is_error=True)
+            self.error_label.setText(str(exc).splitlines()[0])
+            self.expr_input.selectAll()
+            return
+
+        self._append_history(text, result.message, is_error=False)
+        self.expr_input.clear()
+
+    def _append_history(self, input_text: str, output_text: str, is_error: bool) -> None:
+        # El texto del usuario puede contener '<' o '>' (p. ej. "x < y"):
+        # se escapa para que no se interprete como HTML. <pre> conserva
+        # los saltos de línea y el espaciado del indicador de posición
+        # de los errores de sintaxis.
+        color = "#b3261e" if is_error else "#1e6b34"
+        safe_input = html.escape(input_text)
+        safe_output = html.escape(output_text)
+        self.history_view.append(f'<pre style="margin:0; color:#5f6368;">&gt; {safe_input}</pre>')
+        self.history_view.append(f'<pre style="margin:0; color:{color};">{safe_output}</pre>')
+        self.history_view.append("")
+
+    def _reset_session(self) -> None:
+        self._session.reset()
+        self.history_view.clear()
+        self.error_label.setText("")
+        self.expr_input.clear()
+
+
 class CalculatorWidget(QWidget):
     """Widget principal del modo Calculadora lógica."""
 
@@ -371,4 +498,6 @@ class CalculatorWidget(QWidget):
         tabs.addTab(self.analysis_tab, "Evaluar y tabla de verdad")
         tabs.addTab(self.simplify_tab, "Simplificar")
         tabs.addTab(self.equivalence_tab, "Comprobar equivalencia")
+        self.expressions_tab = ExpressionsTab()
+        tabs.addTab(self.expressions_tab, "Expresiones y funciones")
         layout.addWidget(tabs)

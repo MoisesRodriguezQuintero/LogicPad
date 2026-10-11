@@ -13,6 +13,8 @@ sobre cuántas contrabarras contiene cada literal.
 
 from utils.quick_entry import (
     _IMMEDIATE_TABLE,
+    LOGIC_CONVERTER,
+    MATH_CONVERTER,
     find_command_before_delimiter,
     find_completed_shortcut,
 )
@@ -178,3 +180,56 @@ def test_delimiter_helper_ignores_when_last_char_is_a_letter():
 def test_unknown_command_does_not_convert():
     assert find_completed_shortcut("\\unknown") is None
     assert find_command_before_delimiter("\\unknown ") is None
+
+
+# --- Salvaguarda: ningún atajo de puntuación de NINGÚN conversor debe
+#     ser prefijo de otro del MISMO conversor (si lo fuera, la
+#     conversión inmediata dispararía antes de tiempo, como pasaba con
+#     "!" siendo prefijo de "!="; ver utils/quick_entry.py). -----------
+
+
+def test_math_converter_does_not_convert_caret_to_xor():
+    # En el campo de expresiones matemáticas, "^" debe quedarse como
+    # "^" (potencia), NO convertirse a "⊕" (eso solo pasa en el
+    # conversor de lógica).
+    assert MATH_CONVERTER.find_completed_shortcut("x^") is None
+    assert LOGIC_CONVERTER.find_completed_shortcut("p^") == ("^", "\u2295")
+
+
+def test_math_converter_comparison_shortcuts():
+    assert MATH_CONVERTER.find_completed_shortcut("x <=") == ("<=", "\u2264")
+    assert MATH_CONVERTER.find_completed_shortcut("x >=") == (">=", "\u2265")
+    assert MATH_CONVERTER.find_completed_shortcut("x <>") == ("<>", "\u2260")
+
+
+def test_math_converter_keeps_safe_legacy_shortcuts():
+    assert MATH_CONVERTER.find_completed_shortcut("!") == ("!", "\u00ac")
+    assert MATH_CONVERTER.find_completed_shortcut("p &&") == ("&&", "\u2227")
+    assert MATH_CONVERTER.find_completed_shortcut("p ||") == ("||", "\u2228")
+    assert MATH_CONVERTER.find_completed_shortcut("p ->") == ("->", "\u2192")
+    assert MATH_CONVERTER.find_completed_shortcut("p <->") == ("<->", "\u2194")
+
+
+def test_math_converter_does_not_have_equiv_shortcut():
+    # "<=>" (equivalencia de expresiones) no pertenece a la gramática
+    # de expresiones matemáticas.
+    assert MATH_CONVERTER.find_completed_shortcut("p <=>") != ("<=>", "\u2261")
+
+
+def test_math_converter_shares_latex_commands_with_logic_converter():
+    assert MATH_CONVERTER.find_completed_shortcut("\\forall") == ("\\forall", "\u2200")
+    assert MATH_CONVERTER.find_completed_shortcut("\\to") == ("\\to", "\u2192")
+    assert MATH_CONVERTER.find_completed_shortcut("\\mapsto") == ("\\mapsto", "\u21a6")
+    assert MATH_CONVERTER.find_completed_shortcut("\\le") == ("\\le", "\u2264")
+    assert MATH_CONVERTER.find_completed_shortcut("\\ge") == ("\\ge", "\u2265")
+
+
+def test_no_prefix_conflicts_within_any_converter():
+    for converter in (LOGIC_CONVERTER, MATH_CONVERTER):
+        sequences = [seq for seq, _ in converter.immediate_table]
+        for seq in sequences:
+            others = [other for other in sequences if other != seq]
+            assert not any(other.startswith(seq) for other in others), (
+                f"'{seq}' es prefijo de otra secuencia en el mismo conversor"
+            )
+

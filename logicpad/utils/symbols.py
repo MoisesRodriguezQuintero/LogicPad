@@ -50,6 +50,7 @@ CATEGORY_LABELS: dict[str, str] = {
     "logic": "Lógica",
     "quantifiers": "Cuantificadores",
     "sets": "Conjuntos",
+    "relations": "Relaciones y funciones",
 }
 
 # --- Símbolos de lógica proposicional --------------------------------
@@ -93,10 +94,33 @@ _SET_SYMBOLS: list[Symbol] = [
     Symbol(r"\setminus", "∖", "Diferencia", "sets"),
     Symbol(r"\emptyset", "∅", "Conjunto vacío", "sets"),
     Symbol(r"\times", "×", "Producto cartesiano", "sets"),
+    # Delimitadores: no necesitan comando (se escriben directamente desde
+    # el teclado); se listan igualmente para que el selector de símbolos
+    # y la ayuda documenten la notación completa de conjuntos.
+    Symbol("{", "{", "Llave de apertura de conjunto", "sets", "Se escribe directamente."),
+    Symbol("}", "}", "Llave de cierre de conjunto", "sets", "Se escribe directamente."),
+    Symbol("|", "|", 'Barra ("tal que", notación por comprensión)', "sets", "Se escribe directamente."),
+]
+
+# --- Relaciones y funciones ------------------------------------------------
+#
+# → y ↔ ya existen en la categoría "logic" (con sus atajos !, &&, etc.);
+# se añaden aquí también, con el comando \to, porque en el contexto de
+# funciones y relaciones es habitual pensar en ellos como "A → B" o
+# "f: x ↦ x²" más que como conectores lógicos puros. No hay conflicto:
+# son simplemente dos formas de obtener el mismo símbolo.
+_RELATION_SYMBOLS: list[Symbol] = [
+    Symbol(r"\to", "→", "Implicación / función de A en B", "relations"),
+    Symbol(r"\mapsto", "↦", "Aplicación (f: x ↦ x²)", "relations"),
+    Symbol(r"\le", "≤", "Menor o igual", "relations"),
+    Symbol(r"\ge", "≥", "Mayor o igual", "relations"),
+    Symbol("=", "=", "Igualdad", "relations", "Se escribe directamente."),
+    Symbol("<", "<", "Menor que", "relations", "Se escribe directamente."),
+    Symbol(">", ">", "Mayor que", "relations", "Se escribe directamente."),
 ]
 
 # Lista completa: única fuente de verdad para toda la aplicación.
-SYMBOLS: list[Symbol] = [*_LOGIC_SYMBOLS, *_QUANTIFIER_SYMBOLS, *_SET_SYMBOLS]
+SYMBOLS: list[Symbol] = [*_LOGIC_SYMBOLS, *_QUANTIFIER_SYMBOLS, *_SET_SYMBOLS, *_RELATION_SYMBOLS]
 
 # Comandos "estilo LaTeX" (empiezan por "\"), es decir, todo lo que no
 # sea un atajo de puntuación heredado (!, &&, ||, ^, ->, <->, <=>).

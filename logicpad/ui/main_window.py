@@ -165,7 +165,7 @@ class MainWindow(QMainWindow):
             lines.append(f"  {ascii_seq:<10} →  {symbol}    {description}")
 
         grouped = symbols_by_category()
-        for category in ("quantifiers", "sets"):
+        for category in ("quantifiers", "sets", "relations"):
             category_symbols = grouped.get(category, [])
             if not category_symbols:
                 continue

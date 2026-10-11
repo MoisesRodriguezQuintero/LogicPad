@@ -86,6 +86,14 @@ logicpad/
 │   ├── simplifier.py           # Simplificador simbólico basado en reglas
 │   └── argument.py             # Premisas + conclusión, comprobación de validez
 │
+├── mathexpr/                # Motor de expresiones matemáticas — SIN PySide6
+│   ├── tokens.py / lexer.py   # Números, identificadores, operadores ASCII/Unicode
+│   ├── ast_nodes.py           # Nodos: aritmética, comparaciones, conjuntos, funciones...
+│   ├── parser.py              # Parser recursivo descendente (sin eval)
+│   ├── environment.py         # Variables, conjuntos y funciones definidas
+│   ├── evaluator.py           # Evaluación segura sobre el AST
+│   └── session.py             # Sesión: define / asigna / evalúa línea a línea
+│
 ├── models/
 │   └── document.py           # Modelo de documento (.logicpad, JSON)
 │
@@ -104,7 +112,8 @@ logicpad/
     ├── test_equivalence.py
     ├── test_simplifier.py
     ├── test_argument.py
-    └── test_quick_entry.py    # Atajos heredados + comandos \forall, \in, \cup...
+    ├── test_quick_entry.py    # Atajos heredados + comandos \forall, \in, \cup...
+    └── test_mathexpr_*.py     # Lexer, parser, evaluador y sesión de mathexpr
 ```
 
 **(\*) Nota sobre `ast_nodes.py`:** el diseño original sugería llamar a
@@ -184,6 +193,10 @@ comando:
 | `\setminus` | ∖         | Diferencia             |
 | `\emptyset` | ∅         | Conjunto vacío         |
 | `\times`    | ×         | Producto cartesiano    |
+| `\to`       | →         | Implicación / función de A en B |
+| `\mapsto`   | ↦         | Aplicación (f: x ↦ x²) |
+| `\le`       | ≤         | Menor o igual          |
+| `\ge`       | ≥         | Mayor o igual          |
 
 Estos comandos pertenecen a un sistema **deliberadamente separado**
 del de la sección anterior: no reutilizan ni reasignan `|`, `||` ni
@@ -228,6 +241,67 @@ limitada a lógica proposicional por ahora.
 
 ---
 
+## 4b. Expresiones matemáticas y funciones (pestaña «Expresiones y funciones»)
+
+La Calculadora tiene una cuarta pestaña, **Expresiones y funciones**,
+con su propio motor (`mathexpr/`), independiente de Qt y también de
+`logic/`. Mantiene una *sesión*: lo que se define en una línea sigue
+disponible en las siguientes hasta pulsar «Reiniciar sesión».
+
+```text
+f(x) = x^2 + 1        define una función            → Función «f» definida
+f(3)                  evalúa                        → 10
+f(2) > f(1)           comparación                   → Verdadero
+S = {1, 2, 3}         asigna un conjunto
+f(S)                  aplica f a cada elemento      → {1, 4, 9}   (= {f(s) | s ∈ S})
+{x | x ∈ S, x > 1}    conjunto por comprensión      → {2, 3}
+2 ∈ S    S ∪ {7}    A ⊆ B    A × B    A ∖ B       operaciones y relaciones de conjuntos
+∀x ∈ S, x > 0         cuantificador acotado         → Verdadero
+x < y -> f(x) < f(y)  expresión suelta (no se evalúa si x, y no están definidas)
+```
+
+**Qué reconoce el analizador:** números, variables, funciones, `+ - * / ^`,
+`= ≠ < > ≤ ≥`, `∈ ∉ ⊂ ⊆ ⊃ ⊇`, `∪ ∩ ∖ ×`, `∅`, `{…}` (enumerados y por
+comprensión), `¬ ∧ ∨ ⊕ → ↔` y cuantificadores `∀`/`∃`. No usa `eval()`:
+todo se evalúa recorriendo el AST con operaciones explícitas.
+
+**Decisiones y limitaciones (documentadas a propósito):**
+
+* **`^` es potencia en esta pestaña** (como en `x^2`), mientras que en el
+  Editor y en las pestañas de lógica proposicional sigue siendo `⊕`. Por eso
+  el campo usa un conversor propio (`MATH_CONVERTER`) que no convierte `^`;
+  mantiene `!`, `&&`, `||`, `->`, `<->` y añade `<=`→`≤`, `>=`→`≥`, `<>`→`≠`
+  (se eligió `<>` y no `!=` para que `!` no sea prefijo de otro atajo).
+* **Definir vs. comparar.** `nombre(param) = valor` define una función. Si el
+  lado derecho es una comparación, un conector lógico o un cuantificador
+  (p. ej. `f(x) = f(y) -> x = y`, la inyectividad), se reconoce como
+  expresión. Pero `f(x) = f(y)` *a secas* es sintácticamente idéntica a una
+  definición y se interpreta como tal: es una limitación inherente a usar `=`
+  para ambas cosas, y por ahora no se evalúan propiedades como la
+  inyectividad (solo se *reconocen* estructuralmente).
+* Cuantificadores: se evalúan solo sobre un **dominio finito conocido** y con
+  cuerpo (`∀x ∈ A, x > 0`). `∀x ∈ A` sin cuerpo se reconoce pero da un error
+  claro al evaluarla, en vez de inventar un resultado. Sobre dominio vacío,
+  `∀` es verdadero y `∃` falso.
+* Funciones de **un solo parámetro**. Comparaciones encadenadas (`a < b < c`)
+  no admitidas. Operaciones de conjuntos (`∪ ∩ ∖ ×`) al mismo nivel de
+  precedencia, asociativas por la izquierda (simplificación de esta versión).
+* Los elementos de un conjunto deben ser números, booleanos o tuplas (no hay
+  conjuntos de conjuntos todavía). `{…}` vacío y `∅` son equivalentes.
+* **Por qué `mathexpr/` no reutiliza `logic/ast_nodes.py`:** esas clases
+  llevan un impresor/precedencia pensado solo para lógica proposicional;
+  mezclarlas con nodos de comparación o conjuntos las habría roto y acoplado
+  dos módulos pensados para evolucionar por separado. Se reutiliza el
+  *patrón* (lexer/parser/AST/evaluador sin Qt), no las clases.
+
+**Pendiente** (el AST ya deja sitio para ello): evaluar propiedades
+cuantificadas sobre dominios no enumerados, funciones de varios argumentos,
+`↦` como definición (`f: x ↦ x²`; hoy es solo un símbolo), imagen e imagen
+inversa de conjuntos más allá de `f(S)`, impresor de expresiones y
+autocompletado de comandos mientras se escribe.
+
+---
+
 ## 5. Precedencia y asociatividad de operadores
 
 De mayor a menor prioridad de "unión":
@@ -264,7 +338,8 @@ edición (deshacer/rehacer, copiar/pegar, seleccionar).
 
 ### 6.2. Calculadora lógica
 
-Tres pestañas:
+Cuatro pestañas (las tres primeras, de lógica proposicional; la cuarta,
+sección 4b):
 
 * **Evaluar y tabla de verdad**: analiza una expresión, detecta sus
   variables automáticamente, permite evaluarla con valores concretos y
@@ -409,9 +484,8 @@ reescribir lo existente:
   cálculo...): basta con añadir símbolos nuevos a `utils/symbols.py`
   con su propia categoría; el selector, la ayuda y la conversión de
   escritura rápida los recogen automáticamente.
-* Un parser y evaluador de expresiones de conjuntos (más allá de la
-  notación), diagramas de Venn, y ejercicios interactivos — fuera del
-  alcance de esta actualización a propósito.
+* Diagramas de Venn y ejercicios interactivos de conjuntos; ampliar el
+  motor `mathexpr/` con lo listado como pendiente en la sección 4b.
 * Autocompletado real de comandos mientras se escribe `\cu`, `\su`...
   (por ahora la conversión es solo de sustitución; el diseño de
   `utils/symbols.py` ya deja los datos listos — nombre, categoría — para
