@@ -286,6 +286,11 @@ todo se evalúa recorriendo el AST con operaciones explícitas.
 * Funciones de **un solo parámetro**. Comparaciones encadenadas (`a < b < c`)
   no admitidas. Operaciones de conjuntos (`∪ ∩ ∖ ×`) al mismo nivel de
   precedencia, asociativas por la izquierda (simplificación de esta versión).
+* **Salvaguardas de robustez:** `0^-1` y `(-8)^0.5` dan un error claro (no
+  una excepción ni un número complejo); las potencias enteras cuyo
+  resultado superaría ~100.000 bits (p. ej. `9^9^9`) se rechazan en vez de
+  dejar la aplicación calculando; y un anidamiento absurdo de paréntesis
+  produce un error en lugar de un fallo de recursión.
 * Los elementos de un conjunto deben ser números, booleanos o tuplas (no hay
   conjuntos de conjuntos todavía). `{…}` vacío y `∅` son equivalentes.
 * **Por qué `mathexpr/` no reutiliza `logic/ast_nodes.py`:** esas clases

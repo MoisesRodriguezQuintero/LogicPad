@@ -31,6 +31,10 @@ from . import ast_nodes as ast
 from .environment import Environment, FunctionDef
 
 
+# Tamaño máximo (en bits) permitido para el resultado de una potencia entera.
+_MAX_POWER_BITS = 100_000
+
+
 class MathEvaluationError(Exception):
     """Error al evaluar una expresión ya analizada correctamente
     (variable sin definir, tipos incompatibles, división por cero...)."""
@@ -160,10 +164,22 @@ def _evaluate_binop(node: ast.BinOp, env: Environment) -> int | float:
         result = left / right
         return int(result) if isinstance(left, int) and isinstance(right, int) and left % right == 0 else result
     if node.op == "^":
+        # Salvaguarda frente a potencias de enteros gigantes (p. ej. 9^9^9),
+        # que dejarían la aplicación calculando "para siempre": se estima el
+        # tamaño del resultado en bits antes de calcularlo.
+        if isinstance(left, int) and isinstance(right, int) and right > 0:
+            if abs(left).bit_length() * right > _MAX_POWER_BITS:
+                raise MathEvaluationError("El resultado de la potencia es demasiado grande.")
         try:
-            return left**right
+            result = left**right
         except OverflowError as exc:
             raise MathEvaluationError("El resultado de la potencia es demasiado grande.") from exc
+        except ZeroDivisionError as exc:
+            raise MathEvaluationError("División por cero.") from exc
+        if isinstance(result, complex):
+            # p. ej. (-8)^0.5: Python devuelve un número complejo.
+            raise MathEvaluationError("El resultado no es un número real.")
+        return result
     raise MathEvaluationError(f"Operador aritmético desconocido: {node.op}")  # pragma: no cover
 
 

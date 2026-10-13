@@ -1,4 +1,3 @@
-```bat
 @echo off
 setlocal
 cd /d "%~dp0"
@@ -116,4 +115,3 @@ echo.
 echo Se ha producido un error al iniciar LogicPad.
 pause
 exit /b 1
-```

@@ -58,12 +58,13 @@ class LogicLineEdit(QLineEdit):
         if gobble:
             self._replace_range(cursor_pos - len(command) - 1, cursor_pos, symbol)
         else:
-            self._replace_range(cursor_pos - 1 - len(command), cursor_pos - 1, symbol)
+            # El delimitador se conserva: el cursor debe quedar DESPUÉS de él.
+            self._replace_range(cursor_pos - 1 - len(command), cursor_pos - 1, symbol, kept_tail=1)
 
-    def _replace_range(self, start: int, end: int, replacement: str) -> None:
+    def _replace_range(self, start: int, end: int, replacement: str, kept_tail: int = 0) -> None:
         full_text = self.text()
         new_text = full_text[:start] + replacement + full_text[end:]
-        new_cursor = start + len(replacement)
+        new_cursor = start + len(replacement) + kept_tail
         self.blockSignals(True)
         self.setText(new_text)
         self.setCursorPosition(new_cursor)

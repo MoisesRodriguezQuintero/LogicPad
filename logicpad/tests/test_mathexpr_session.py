@@ -87,3 +87,10 @@ def test_quantifier_unsupported_case_fails_clearly_not_silently():
     session.run("A = {1, 2, 3}")
     with pytest.raises(MathEvaluationError):
         session.run("∀x ∈ A")
+
+
+def test_absurdly_nested_expression_does_not_crash_the_app():
+    session = Session()
+    with pytest.raises(MathEvaluationError):
+        session.run("(" * 20000 + "1" + ")" * 20000)
+    assert session.run("1 + 1").value == 2  # la sesión sigue viva

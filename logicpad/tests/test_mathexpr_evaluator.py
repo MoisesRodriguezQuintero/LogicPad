@@ -34,6 +34,22 @@ def test_division_by_zero_raises():
         ev("1 / 0")
 
 
+def test_zero_to_negative_power_is_a_clear_error_not_a_crash():
+    with pytest.raises(MathEvaluationError):
+        ev("0 ^ -1")
+
+
+def test_even_root_of_negative_number_is_a_clear_error_not_a_complex_number():
+    with pytest.raises(MathEvaluationError):
+        ev("(-8) ^ 0.5")
+
+
+def test_gigantic_integer_power_is_rejected_instead_of_hanging():
+    with pytest.raises(MathEvaluationError):
+        ev("9^9^9")
+    assert ev("2^10000") == 2**10000  # los resultados grandes pero razonables siguen funcionando
+
+
 def test_unary_minus():
     assert ev("-3 + 5") == 2
 

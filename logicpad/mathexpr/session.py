@@ -98,6 +98,15 @@ class Session:
                 "('f(x) = x^2 + 1') o una asignación ('S = {1, 2, 3}')."
             )
 
+        try:
+            return self._process(stripped)
+        except RecursionError as exc:
+            # Una expresión con un anidamiento absurdo no debe tumbar la app.
+            raise MathEvaluationError(
+                "La expresión es demasiado compleja (anidamiento excesivo)."
+            ) from exc
+
+    def _process(self, stripped: str) -> MathResult:
         node = parse(stripped)
 
         if isinstance(node, ast.FunctionDefinition):
