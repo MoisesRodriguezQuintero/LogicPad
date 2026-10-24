@@ -185,6 +185,14 @@ _MATH_LEGACY_SHORTCUTS: list[tuple[str, str]] = [
 ]
 MATH_CONVERTER = QuickEntryConverter(_build_immediate_table(_MATH_LEGACY_SHORTCUTS))
 
+# ---------------------------------------------------------------------
+# Conversor de EXPRESIONES DE CONJUNTOS (pestaña «Conjuntos»): solo los
+# comandos estilo LaTeX (\\cup, \\cap, \\setminus, \\triangle,
+# \\complement...); ningún atajo de puntuación, porque aquí caracteres
+# como "!", "^" o "|" no son operadores y no deben transformarse.
+# ---------------------------------------------------------------------
+SETS_CONVERTER = QuickEntryConverter(_build_immediate_table([]))
+
 
 # ---------------------------------------------------------------------
 # Funciones de módulo (compatibilidad hacia atrás): delegan en

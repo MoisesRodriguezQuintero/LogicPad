@@ -100,7 +100,6 @@ class ProofPadWidget(QWidget):
 
         result = check_validity(argument)
 
-        premises_str = "\n".join(f"  {p.to_unicode()}" for p in argument.premises)
         conclusion_str = argument.conclusion.to_unicode()
 
         if result.is_valid:

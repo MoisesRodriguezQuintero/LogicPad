@@ -28,7 +28,7 @@ import itertools
 from typing import Any
 
 from . import ast_nodes as ast
-from .environment import Environment, FunctionDef
+from .environment import Environment
 
 
 # Tamaño máximo (en bits) permitido para el resultado de una potencia entera.

@@ -26,6 +26,7 @@ class StartScreen(QWidget):
     editor_requested = Signal()
     calculator_requested = Signal()
     proof_pad_requested = Signal()
+    sets_requested = Signal()
     exit_requested = Signal()
 
     def __init__(self, parent=None):
@@ -60,9 +61,12 @@ class StartScreen(QWidget):
         self.proof_pad_btn = _make_option_button(
             "3. LogicPad", "Comprueba la validez de argumentos"
         )
+        self.sets_btn = _make_option_button(
+            "4. Conjuntos", "Diagramas de Venn y cálculo de conjuntos"
+        )
         self.exit_btn = _make_option_button("Salir", "Cerrar la aplicación", primary=False)
 
-        for btn in (self.editor_btn, self.calculator_btn, self.proof_pad_btn):
+        for btn in (self.editor_btn, self.calculator_btn, self.proof_pad_btn, self.sets_btn):
             layout.addWidget(btn)
 
         layout.addSpacing(20)
@@ -72,4 +76,5 @@ class StartScreen(QWidget):
         self.editor_btn.clicked.connect(self.editor_requested)
         self.calculator_btn.clicked.connect(self.calculator_requested)
         self.proof_pad_btn.clicked.connect(self.proof_pad_requested)
+        self.sets_btn.clicked.connect(self.sets_requested)
         self.exit_btn.clicked.connect(self.exit_requested)

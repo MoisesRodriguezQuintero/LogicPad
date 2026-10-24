@@ -13,9 +13,11 @@ from PySide6.QtWidgets import QMainWindow, QMessageBox, QStackedWidget
 from ui.calculator import CalculatorWidget
 from ui.editor import EditorWidget
 from ui.proof_pad import ProofPadWidget
+from ui.sets_tab import SetsWidget
 from ui.start_screen import StartScreen
 from utils.shortcuts import SHORTCUT_HELP
 from utils.symbols import CATEGORY_LABELS, symbols_by_category
+from utils.version import APP_VERSION
 
 APP_TITLE = "LogicPad"
 
@@ -32,11 +34,13 @@ class MainWindow(QMainWindow):
         self.editor_widget = EditorWidget()
         self.calculator_widget = CalculatorWidget()
         self.proof_pad_widget = ProofPadWidget()
+        self.sets_widget = SetsWidget()
 
         self.stack.addWidget(self.start_screen)
         self.stack.addWidget(self.editor_widget)
         self.stack.addWidget(self.calculator_widget)
         self.stack.addWidget(self.proof_pad_widget)
+        self.stack.addWidget(self.sets_widget)
 
         self._build_menu()
         self._connect_signals()
@@ -94,6 +98,10 @@ class MainWindow(QMainWindow):
         proof_pad_action.triggered.connect(self.show_proof_pad)
         view_menu.addAction(proof_pad_action)
 
+        sets_action = QAction("C&onjuntos", self)
+        sets_action.triggered.connect(self.show_sets)
+        view_menu.addAction(sets_action)
+
         help_menu = menu_bar.addMenu("A&yuda")
 
         shortcuts_action = QAction("&Atajos de escritura lógica", self)
@@ -108,6 +116,7 @@ class MainWindow(QMainWindow):
         self.start_screen.editor_requested.connect(self.show_editor)
         self.start_screen.calculator_requested.connect(self.show_calculator)
         self.start_screen.proof_pad_requested.connect(self.show_proof_pad)
+        self.start_screen.sets_requested.connect(self.show_sets)
         self.start_screen.exit_requested.connect(self.close)
 
         self.editor_widget.title_changed.connect(self._update_title)
@@ -129,6 +138,10 @@ class MainWindow(QMainWindow):
     def show_proof_pad(self) -> None:
         self.stack.setCurrentWidget(self.proof_pad_widget)
         self.setWindowTitle(f"{APP_TITLE} — LogicPad")
+
+    def show_sets(self) -> None:
+        self.stack.setCurrentWidget(self.sets_widget)
+        self.setWindowTitle(f"{APP_TITLE} — Conjuntos")
 
     # -- Acciones de archivo (operan siempre sobre el Editor) ---------
     def _ensure_editor_visible(self) -> None:
@@ -189,9 +202,10 @@ class MainWindow(QMainWindow):
         QMessageBox.information(
             self,
             "Acerca de LogicPad",
-            "LogicPad\n\n"
-            "Herramienta de escritorio para el estudio de lógica proposicional: "
-            "apuntes, calculadora lógica y comprobación de argumentos.\n\n"
+            f"LogicPad — versión {APP_VERSION}\n\n"
+            "Herramienta de escritorio para el estudio de lógica proposicional, "
+            "conjuntos y funciones: apuntes, calculadora lógica, expresiones "
+            "matemáticas, comprobación de argumentos y diagramas de Venn.\n\n"
             "Motor lógico propio (lexer, parser, evaluador, tablas de verdad, "
             "comprobador de equivalencia y simplificador simbólico) "
             "independiente de la interfaz gráfica.",

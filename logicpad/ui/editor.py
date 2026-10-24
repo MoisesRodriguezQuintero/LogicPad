@@ -13,7 +13,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import Signal
-from PySide6.QtGui import QFont, QKeySequence, QTextCursor
+from PySide6.QtGui import QFont, QTextCursor
 from PySide6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,

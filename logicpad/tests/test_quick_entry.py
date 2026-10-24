@@ -15,6 +15,7 @@ from utils.quick_entry import (
     _IMMEDIATE_TABLE,
     LOGIC_CONVERTER,
     MATH_CONVERTER,
+    SETS_CONVERTER,
     find_command_before_delimiter,
     find_completed_shortcut,
 )
@@ -225,7 +226,7 @@ def test_math_converter_shares_latex_commands_with_logic_converter():
 
 
 def test_no_prefix_conflicts_within_any_converter():
-    for converter in (LOGIC_CONVERTER, MATH_CONVERTER):
+    for converter in (LOGIC_CONVERTER, MATH_CONVERTER, SETS_CONVERTER):
         sequences = [seq for seq, _ in converter.immediate_table]
         for seq in sequences:
             others = [other for other in sequences if other != seq]
@@ -233,3 +234,14 @@ def test_no_prefix_conflicts_within_any_converter():
                 f"'{seq}' es prefijo de otra secuencia en el mismo conversor"
             )
 
+
+
+def test_set_operation_commands_triangle_and_complement():
+    assert LOGIC_CONVERTER.find_completed_shortcut("A \\triangle") == ("\\triangle", "\u25b3")
+    assert LOGIC_CONVERTER.find_completed_shortcut("A \\complement") == ("\\complement", "\u1d9c")
+
+
+def test_sets_converter_only_converts_commands_never_punctuation():
+    assert SETS_CONVERTER.find_completed_shortcut("A \\cup") == ("\\cup", "\u222a")
+    for text in ("!", "p ^", "p &&", "p ||", "p ->", "x <="):
+        assert SETS_CONVERTER.find_completed_shortcut(text) is None, text
