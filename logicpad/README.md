@@ -44,12 +44,32 @@ python3 main.py
 ```
 
 Se abrirá la ventana principal de LogicPad con la pantalla de
-selección de modo (Editor / Calculadora lógica / LogicPad).
+selección de modo (Editor / Calculadora lógica / LogicPad / Conjuntos /
+Funciones / Relaciones).
 
-### 1.4. Ejecutar los tests
+### 1.4. Windows
 
-El motor lógico (`logic/`) tiene una batería de tests independiente de
-la interfaz gráfica:
+Los mismos pasos, con las órdenes de Windows (PowerShell o `cmd`):
+
+```bat
+cd logicpad
+py -3.12 -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+python main.py
+```
+
+El proyecto no usa nada específico de Linux. Las dependencias son
+**PySide6** y **SymPy** (esta última, para factorizar, resolver ecuaciones
+y calcular rangos de funciones en los modos Funciones y Relaciones);
+todo funciona **sin conexión** una vez instaladas. El entorno virtual
+(`.venv`) no forma parte de la entrega: créalo en cada equipo.
+
+### 1.5. Ejecutar los tests
+
+Los motores (`logic/`, `mathexpr/`, `setcalc/`, `discrete/`) tienen
+baterías de tests independientes de la interfaz gráfica; las pruebas de
+interfaz usan el plugin «offscreen» de Qt, así que no necesitan pantalla:
 
 ```bash
 pytest
@@ -73,6 +93,13 @@ logicpad/
 │   ├── editor.py             # Modo Editor
 │   ├── calculator.py         # Modo Calculadora lógica
 │   ├── proof_pad.py          # Modo LogicPad (argumentos)
+│   ├── sets_tab.py           # Conjuntos: diagrama de Venn (panel de datos + operaciones + resultados)
+│   ├── sets_mode.py          # Modo Conjuntos: pestañas «Diagrama de Venn» y «Álgebra y demostraciones»
+│   ├── set_algebra_tab.py    # Álgebra de conjuntos con elementos y demostraciones
+│   ├── functions_tab.py      # Modo Funciones
+│   ├── relations_tab.py      # Modo Relaciones (+ relation_graph.py: grafo dirigido)
+│   ├── discrete_common.py    # Cálculo en segundo hilo y vista de resultados
+│   ├── venn_view.py          # Diagrama de Venn (QGraphicsView/QGraphicsScene)
 │   └── widgets.py            # Widgets Qt reutilizables (LogicLineEdit, SymbolPickerButton)
 │
 ├── logic/                   # Motor lógico — SIN dependencias de PySide6
@@ -94,11 +121,34 @@ logicpad/
 │   ├── evaluator.py           # Evaluación segura sobre el AST
 │   └── session.py             # Sesión: define / asigna / evalúa línea a línea
 │
+├── setcalc/                 # Motor de conjuntos y diagramas de Venn — SIN PySide6
+│   ├── elements.py            # Lectura/formato de elementos ({1, 2, "a"}), números vs cadenas
+│   ├── regions.py             # Las 2^n regiones de un diagrama (máscaras)
+│   ├── expr.py                # Expresiones A ∪ B, Aᶜ, A △ B...: parser + regiones que forman
+│   ├── model.py               # Modelo de datos (conjuntos, cardinales, condiciones)
+│   ├── lp.py / solver.py      # Símplex exacto + ramificación: restricciones de cardinales
+│   ├── analysis.py            # Modo A (cardinales) y Modo B (elementos) + operaciones
+│   ├── report.py              # Textos de resultados y de región (sin Qt)
+│   └── venn_geometry.py       # Geometría del diagrama (círculos, regiones, textos)
+│
+├── discrete/                # Matemática Discreta — SIN PySide6 (ver 4d, 4e y 4f)
+│   ├── values.py              # Valores: números, símbolos, pares (a, b), conjuntos anidados, rangos
+│   ├── setbuilder.py          # Conjuntos por condición {x ∈ A | x > 2}
+│   ├── sexpr.py               # Expresiones de conjuntos con jerarquía (árbol), impresión y evaluación
+│   ├── setproofs.py           # Demostraciones: leyes, elementos arbitrarios, tabla de pertenencia
+│   ├── setalgebra.py          # Sesión: cálculo paso a paso y demostración de igualdades
+│   ├── functions.py           # Funciones: evaluación, composición, inyectiva/sobreyectiva
+│   ├── relations_finite.py    # Relaciones finitas: propiedades, equivalencia, clases, órdenes
+│   ├── relations_formula.py   # Relaciones por fórmula (SymPy): propiedades, clases, divisibilidad, ≡
+│   ├── exact.py / symbolic.py # Evaluación exacta (fracciones) y puente seguro AST → SymPy
+│   └── proof.py               # Estructura común Proof/Report (demostrado/refutado/inconcluso)
+│
 ├── models/
 │   └── document.py           # Modelo de documento (.logicpad, JSON)
 │
 ├── utils/
 │   ├── quick_entry.py         # Lógica pura de conversión de escritura rápida
+│   ├── version.py             # APP_VERSION (única fuente del número de versión)
 │   ├── shortcuts.py           # Tabla de atajos de lógica (heredada) + ayuda
 │   └── symbols.py             # Registro de símbolos por categoría (lógica,
 │                               # cuantificadores, conjuntos...) — única fuente
@@ -113,7 +163,13 @@ logicpad/
     ├── test_simplifier.py
     ├── test_argument.py
     ├── test_quick_entry.py    # Atajos heredados + comandos \forall, \in, \cup...
-    └── test_mathexpr_*.py     # Lexer, parser, evaluador y sesión de mathexpr
+    ├── test_mathexpr_*.py     # Lexer, parser, evaluador y sesión de mathexpr
+    ├── test_setcalc_*.py      # Conjuntos: elementos, expresiones, solver (incl. contraste con
+    │                          #   fuerza bruta), análisis de ambos modos y geometría
+    ├── test_sets_tab_gui.py   # Interfaz del diagrama de Venn (en modo sin pantalla)
+    ├── test_discrete_*.py     # Valores, conjuntos y demostraciones, funciones, relaciones (finitas
+    │                          #   y por fórmula) e interfaz de los tres modos nuevos
+    └── test_mathexpr_discrete_syntax.py  # |x|, ∣, ≡ (mod m), mod, x², 2x y la precedencia de -x^2
 ```
 
 **(\*) Nota sobre `ast_nodes.py`:** el diseño original sugería llamar a
@@ -193,6 +249,8 @@ comando:
 | `\setminus` | ∖         | Diferencia             |
 | `\emptyset` | ∅         | Conjunto vacío         |
 | `\times`    | ×         | Producto cartesiano    |
+| `\triangle` | △         | Diferencia simétrica   |
+| `\complement`| ᶜ        | Complemento (tras el conjunto: `Aᶜ`) |
 | `\to`       | →         | Implicación / función de A en B |
 | `\mapsto`   | ↦         | Aplicación (f: x ↦ x²) |
 | `\le`       | ≤         | Menor o igual          |
@@ -307,6 +365,264 @@ autocompletado de comandos mientras se escribe.
 
 ---
 
+### Cambios de sintaxis para Matemática Discreta (versión 0.7)
+
+* **Corrección de un error de precedencia**: `-x^2` es −(x²) y `-2^2` es −4
+  (antes se leía como (−x)² y daba 4). `(-2)^2` sigue siendo 4 y `2^-1`, 0,5.
+* Nuevos atajos: `x²`/`x³`, multiplicación implícita tras un número (`2x`,
+  `3(x+1)`), el signo `−` de Unicode, `a mod m`, `a ∣ b` (divide a),
+  `a ≡ b (mod m)`, `⇔` y `<=>`, y `·` como producto.
+* **Modo fórmula** (relaciones y funciones): `|x|` es el valor absoluto; ahí
+  `||` son dos barras, y la disyunción se escribe `∨` (un `&` suelto es `∧`).
+
+---
+
+## 4c. Conjuntos y diagramas de Venn (modo «Conjuntos»)
+
+Cuarto modo de la pantalla de inicio (botón **4. Conjuntos**, o *Ver ▸ Conjuntos*).
+Sirve para resolver ejercicios de conjuntos y para explorarlos visualmente.
+Funciona con **1, 2 o 3 conjuntos**: con más, un diagrama de Venn clásico deja de
+ser legible, así que el botón «＋ Conjunto» se desactiva a partir de 3 (el motor
+`setcalc/` admite más, pero la interfaz lo limita explícitamente).
+
+**Distribución.** *Izquierda:* el modo de cálculo y dos secciones plegables,
+**Cardinales** (`|U|`, `|A|`, `|B|`, `|C|`… y el botón «Añadir condición» para datos como
+`|A ∩ B| = 2` o `|A ∪ B| = 5`) y **Conjuntos** (`U = {…}`, `A = {…}`, renombrar y
+eliminar). *Derecha:* selector de operación, diagrama de Venn y panel de resultados.
+
+### Dos modos de cálculo
+
+| | **A · Cardinales** | **B · Conjuntos explícitos** |
+|---|---|---|
+| Datos | Cantidades y condiciones | Los elementos reales |
+| Resultado de una operación | Su **cardinal**, si se deduce | El **conjunto** resultante y su cardinal |
+| Cada región es | *Conocida*, *indeterminada* o *incompatible* | Conocida (sus elementos) |
+
+**Modo A.** Cada región del diagrama es una variable entera ≥ 0 y cada dato es una
+suma de regiones, p. ej. `|A| = solo_A + solo_AB + solo_AC + solo_ABC`. El programa
+**no elige una solución arbitraria**: para cada región calcula el mínimo y el máximo
+que alcanza *alguna* distribución válida. Si coinciden, la región es **conocida**; si
+no, es **indeterminada** (se muestra «?» y su rango, p. ej. `0–30`, y el panel sugiere
+qué datos ayudarían, como `|A ∩ B|`); y si ninguna distribución cumple los datos, son
+**incompatibles** (se marca ✗ y se explica *qué condiciones* chocan, p. ej. «`|A ∩ B| = 4`
+no puede cumplirse junto con `|A| = 3`: lo primero está contenido en lo segundo»).
+El universo se respeta: sin regiones negativas y sin que la unión supere a `|U|`.
+Para la unión de 2 o 3 conjuntos se muestra la fórmula de inclusión–exclusión con los
+valores sustituidos (`3 + 4 − 2 = 5`) o qué términos faltan para aplicarla.
+
+**Modo B.** Los conjuntos se escriben con sus elementos: `{1, 2, 3}`. Se tratan
+matemáticamente: sin duplicados, `2` y `2.0` son el mismo número, y `3` (número) y
+`"3"` (cadena entre comillas) son elementos **distintos**; una palabra suelta (`a`) es una
+cadena. Un campo en blanco significa «sin definir» y `{}` es el conjunto vacío. Los
+cardinales y las regiones se derivan de los elementos. Si un conjunto contiene
+elementos que no están en `U`, se avisa (no se aceptan en silencio). Los cardinales de
+los conjuntos con elementos están **bloqueados** (se calculan), de modo que no se puede
+introducir uno incompatible.
+
+### Operaciones
+
+Se escriben en el campo «Operación» (o se eligen de la lista; las barras de botones
+insertan `∪ ∩ ∖ △ ᶜ ( )`, y valen los comandos `\cup \cap \setminus \triangle \complement`):
+
+| Operación | Escritura | | Operación | Escritura |
+|---|---|---|---|---|
+| Unión | `A ∪ B` | | Complemento (respecto de U) | `Aᶜ` (o `A'`) |
+| Intersección | `A ∩ B` | | Diferencia simétrica | `A △ B` |
+| Diferencia | `A ∖ B` (o `A \ B`) | | Triple unión / intersección | `A ∪ B ∪ C`, `A ∩ B ∩ C` |
+
+También sirven combinaciones como `(A ∪ B) ∖ C` o `(A ∪ B)ᶜ`, `U` (universo) y `∅`. `∩`
+liga más que `∪`; mezclar `∪`, `∖` y `△` sin paréntesis, o encadenar `∖`, se **rechaza**
+por ambiguo (hay que usar paréntesis). La operación elegida se **resalta en ámbar** en el
+diagrama, y todas las operaciones se calculan sobre las mismas regiones que se dibujan,
+así que diagrama y resultados no pueden discrepar.
+
+### Diagrama y regiones
+
+El rectángulo es el universo `U` y cada conjunto es un círculo. En cada región se
+muestra su cardinal (o «?» con su rango, o ✗), y en el modo B también sus elementos
+entre llaves; si no caben se recortan con «…» (la lista completa está en el panel).
+**Haz clic en una región** para ver a qué conjuntos pertenece, su expresión (`A ∩ B ∩ Cᶜ`),
+su cardinal (conocido o rango) y sus elementos. Pasar el ratón por encima muestra lo mismo
+como *tooltip*. No hay arrastre de círculos ni editor gráfico en esta versión.
+
+### Validaciones
+
+Cardinales enteros no negativos (el campo solo admite dígitos); cardinal de un conjunto
+o de una intersección mayor que el de otro que lo contiene, o unión mayor que `|U|`
+(contradicciones detectadas por el solver, con su explicación); expresiones con
+conjuntos inexistentes o mal formadas; nombres duplicados o reservados (`U`); elementos
+fuera de `U`; textos de elementos mal escritos (llaves o comillas sin cerrar, comas de más).
+Los datos incompletos o contradictorios nunca bloquean la aplicación.
+
+### Cómo calcula el modo A (para quien quiera saber más)
+
+`setcalc/solver.py` resuelve exactamente el problema *relajado* (valores fraccionarios) con
+un símplex de fracciones propio (`setcalc/lp.py`, sin SciPy ni otras dependencias), que
+decide la compatibilidad y da las cotas de cada región en tiempo polinómico; si el óptimo
+relajado no es entero, ramifica (*branch & bound*) para confirmar o descartar cada valor
+entero. Es exacto también con cardinales enormes (p. ej. 10⁹). Hay un límite de trabajo de
+seguridad: si se alcanza, las cotas se marcan como aproximadas en lugar de darlas por
+exactas. El solver se contrasta en los tests con una enumeración por fuerza bruta de todas
+las distribuciones posibles en cientos de casos aleatorios.
+
+### Limitaciones conocidas y pendiente
+
+* Solo condiciones de **igualdad** (`|expr| = n`); aún no desigualdades (`≥`, `≤`).
+* Máximo 3 conjuntos en la interfaz; para más habría que usar otra representación (p. ej. un
+  diagrama de Edwards o una tabla de regiones), no implementada.
+* Sin conjuntos de conjuntos ni producto cartesiano en este modo (para eso, ver 4b).
+* En modo B, si falta algún conjunto por definir no se calcula nada (se indica cuáles faltan).
+* Sin exportación del diagrama a imagen ni arrastre libre de los círculos.
+* El modo «Conjuntos» **todavía no existe en la versión de Android**.
+
+---
+
+## 4d. Conjuntos: álgebra y demostraciones (Conjuntos ▸ «Álgebra y demostraciones»)
+
+Segunda pestaña del modo Conjuntos (la primera es el diagrama de Venn de 4c).
+
+**Definir conjuntos** (una línea por conjunto, `NOMBRE = valor`): por extensión
+`A = {1, 2, 3}`; vacío `∅` o `{}`; unitarios `{5}`; **anidados** `{1, {2}, ∅}`;
+con **pares ordenados** `{(a, b), (b, a)}`; rangos `{1..10}`; y por condición
+`B = {x ∈ U | x mod 2 = 0 ∧ x > 3}` (dominio finito y elementos numéricos; la
+condición se evalúa de forma exacta, sin `eval`). La igualdad es **extensional**:
+orden y repeticiones no importan, `2` y `2.0` coinciden, `3` y `"3"` no, y
+`{1}` (conjunto unitario) no es `1`. Un identificador sin comillas dentro de un
+conjunto es un símbolo, salvo que esté definido (`{A, 3}` contiene al conjunto A).
+
+**Operaciones** (se escriben en «Calcular», con resultado paso a paso):
+`∪ ∩ ∖ △ ×`, complemento `Aᶜ` / `A'` / `complemento(...)` / barra combinada,
+conjunto de partes `𝒫(A)` o `P(A)`, cardinal `|A|`, y las comprobaciones
+`=  ≠  ⊆  ⊂  ⊇  ⊃  ∈  ∉` (con explicación; recuerda la diferencia entre
+**pertenencia** `{1} ∈ {{1}, 2}` e **inclusión** `{1} ⊆ {1, 2}`, que el programa señala
+con los valores reales). Un `x ∈ A` con `x` sin definir trata `x` como un símbolo.
+
+* **El complemento exige el universo `U`**: no se supone ninguno. Si un conjunto
+  no está contenido en `U`, se avisa.
+* **Jerarquía**: las expresiones se guardan como un **árbol**, no como texto.
+  `complemento(A ∪ (B ∩ C))`, `Aᶜ ∪ (B ∩ C)` y `Aᶜ ∩ (Bᶜ ∪ Cᶜ)` son tres
+  expresiones distintas. En pantalla el complemento de una expresión completa
+  se dibuja con una **barra sobre toda la expresión** (y en texto como
+  `(A ∪ (B ∩ C))ᶜ`, con paréntesis explícitos).
+* **Límites** (para no bloquear la interfaz): `𝒫(A)` se calcula hasta 12
+  elementos (4096 subconjuntos); `A × B` hasta 5000 pares. Por encima se
+  muestra el cardinal (2ⁿ o |A|·|B|) y una muestra limitada.
+* Los cálculos se hacen en un hilo aparte: la ventana sigue respondiendo.
+
+**Demostrar** una igualdad o inclusión (`A`, `B`, `C` son conjuntos **arbitrarios**,
+no los definidos arriba). Métodos:
+
+| Método | Qué hace |
+|---|---|
+| Leyes del álgebra de conjuntos | Cadena de igualdades justificada (De Morgan, distributiva, asociativa, conmutativa, idempotencia, absorción, complemento doble, definiciones de ∖ y △, neutro, complemento…). Búsqueda por ambos lados; **cada paso se verifica** semánticamente antes de mostrarse. |
+| Elementos arbitrarios | `x ∈ L ⇔ … ⇔ x ∈ R`: traduce la pertenencia a lógica y aplica leyes lógicas; si no encuentra la cadena, hace un **análisis por casos** de la pertenencia de x (igualmente completo). |
+| Tabla de pertenencia | Los 2ⁿ casos de pertenencia de un elemento arbitrario (hasta 6 conjuntos). Es una demostración completa, no una prueba con ejemplos. |
+| Comprobar con mis conjuntos | Verifica con los conjuntos concretos definidos. **No demuestra**: si coinciden, lo dice. |
+
+Si la igualdad es **falsa**, el programa lo detecta y construye un
+**contraejemplo concreto** (universo de un elemento y conjuntos que lo
+contienen o no). Una igualdad nunca se da por cierta por haber probado ejemplos.
+Si la búsqueda de leyes no encuentra cadena, lo dice (sin afirmar que sea falsa) y
+las otras dos demostraciones siguen decidiendo.
+
+---
+
+## 4e. Funciones (modo «Funciones»)
+
+**Definir**: `f(x) = x^2 - 1`, `g(x) = 2*x + 5`; a trozos con `si` y `en otro caso`:
+`h(x) = x + 1 si x < 0; x^2 si x >= 0` (el primer trozo cuya condición se cumple
+manda). Se admiten `+ - * / ^`, valor absoluto `|x|`, `sqrt`, `sin`, `cos`, `tan`, `exp`,
+`ln`, `floor`, `ceil`, la constante `pi` (o `π`) y funciones ya definidas.
+
+* **Evaluar** `f(a)`: elige el trozo (explicando por qué), sustituye y muestra los
+  cálculos intermedios con aritmética exacta (`f(3) = 3^2 - 1 = 9 - 1 = 8`).
+* **Componer** (exterior ∘ interior): `g ∘ f`, `f ∘ g`, `f ∘ f`, `g ∘ g`, también con
+  trozos (se combinan las condiciones), mostrando la sustitución y la simplificación.
+* **Estudiar** inyectividad, sobreyectividad y biyectividad, con **dominio y
+  codominio escritos por ti** (nunca se suponen): `ℝ`, `ℤ`, `ℕ`, `ℤ⁺`, `ℝ⁺`, intervalos
+  `[0, ∞)`, `(−1, 3]`, `[−π/2, π/2]`, `ℝ ∖ {0}`, uniones y conjuntos finitos `{1, 2, 3}`.
+  Cambiar el dominio cambia el resultado (`x²` es inyectiva en ℕ y no en ℤ).
+
+Cómo se decide cada propiedad (y qué significa cada veredicto):
+
+* **Refutada** con un **contraejemplo exacto** y comprobado (`f(1) = f(−1) = 0`,
+  o un `y` del codominio sin preimagen). Nunca se usan valores fuera del dominio.
+* **Demostrada** solo con razonamiento simbólico: factorización de `f(a) − f(b)` y
+  análisis de las demás raíces, monotonía estricta con la derivada, imágenes de
+  cada trozo con SymPy (`function_range`), despeje de `x` en `f(x) = y`, o
+  comprobación exhaustiva si el dominio es finito.
+* **Inconclusa** cuando no hay ni lo uno ni lo otro. Unos cuantos valores
+  evaluados jamás se presentan como demostración.
+* Antes se comprueba que `f` esté **bien definida** de D en C (p. ej. `√x` en ℝ no lo
+  está) y, si es biyectiva, se calcula la **inversa**.
+
+---
+
+## 4f. Relaciones binarias (modo «Relaciones»)
+
+### Relaciones finitas
+
+Introduce el conjunto `A = {a, b, c}` y la relación `R = {(a,a), (b,b), (c,c), (b,a)}`.
+Todo se comprueba sobre los **pares reales de R** (nunca se infieren pares que no
+están) y se valida que `R ⊆ A × A`. Para cada propiedad se muestran las
+comprobaciones una a una y, si falla, un **contraejemplo concreto**:
+
+reflexiva · irreflexiva · simétrica · antisimétrica · asimétrica · transitiva
+(identifica las cadenas `(a,b), (b,c)` y comprueba `(a,c)`) · total/comparabilidad.
+
+Distingue **simetría de antisimetría** (puede ser simétrica sin ser antisimétrica y
+al revés; el programa lo señala) e indica los casos que se cumplen **por vacuidad**.
+**Equivalencia**: razona cada propiedad por separado, calcula las **clases**, el
+**conjunto cociente** y comprueba que forman una partición. **Orden**: parcial,
+total, estricto. Además: **matriz** de la relación y **grafo dirigido** (hasta 12
+elementos). Los elementos pueden ser pares (relaciones sobre productos).
+
+### Relaciones definidas por fórmula
+
+`Universo: ℝ` y `x R y ⇔ |x| = |y|`. Universos: `ℝ ℚ ℤ ℕ ℤ⁺`, productos `ℝ × ℝ` / `ℤ²`
+(con cabecera `(a,b) R (c,d) ⇔ a + d = b + c`), **funciones** (`f R g ⇔ f(0) = g(0)`) o
+un conjunto finito. La condición admite álgebra, `|x|`, `= ≠ < > ≤ ≥`, `∣`,
+`≡ (mod m)`, `mod`, y `∧ ∨ ¬ ⇒ ⇔`. Para cada propiedad el veredicto es uno de tres:
+
+1. **Refutada** con un contraejemplo **exacto** (aritmética con fracciones) o
+   obtenido resolviendo la ecuación y verificado con SymPy.
+2. **Demostrada** con un razonamiento válido para **todo** el universo: simplificar
+   `x R x`, factorizar (`x² − y² − x + y = (x − y)(x + y − 1)`), reescribir como
+   `g(x) = g(y)` y usar la transitividad de la igualdad, la identidad
+   `E(x,y) + E(y,z) = E(x,z)`, resolver `E(x,y) = 0` y ver que la otra raíz cae
+   fuera del universo, o razonamiento proposicional sobre las condiciones.
+3. **Inconclusa**, explicando que no hay contraejemplo en la muestra (lo cual **no es una
+   demostración**) ni prueba algebraica.
+
+**Clases de equivalencia**: plantea la ecuación, la pasa a un lado, factoriza y
+resuelve (`x² − y² = x − y` y la clase de 5: `(b − 5)(b + 4) = 0`, `[5] = {−4, 5}`),
+filtra por el universo, y también da la clase de un elemento genérico `a` (`{a, 1 − a}`).
+**Relaciones especiales** con demostraciones teóricas: divisibilidad (en ℤ⁺ es
+orden parcial no total; en ℤ no es antisimétrica: `2 ∣ −2` y `−2 ∣ 2`), congruencia
+módulo m (reflexiva, simétrica, transitiva a partir de `m ∣ (a − b)`, equivalencia con
+`a mod m = b mod m`, clases `[r]` y `ℤ_m`).
+
+En el universo de **funciones** la antisimetría nunca se demuestra con razonamiento
+sobre valores (dos funciones distintas pueden coincidir en los puntos de la
+condición): se construye un contraejemplo con funciones concretas.
+
+### Limitaciones matemáticas conocidas
+
+* La decisión se apoya en SymPy y en una muestra de valores: relaciones con
+  funciones trascendentes u ecuaciones que SymPy no resuelve quedan **inconclusas**.
+* La transitividad se demuestra para condiciones del tipo `E(x,y) ⋈ 0` (ecuaciones y
+  desigualdades), sus conjunciones y las deducibles por lógica; con disyunciones o
+  `≠` solo se refuta o queda inconclusa.
+* Las clases se calculan resolviendo ecuaciones en ℝ y filtrando por el universo
+  (ℤ, ℕ…); si SymPy no resuelve la ecuación, no se describe la clase.
+* Funciones: no hay dominio ℚ; los dominios enteros se demuestran solo para
+  funciones de un trozo; las imágenes de trozos que se solapan no se resuelven.
+* Conjuntos: la búsqueda de leyes tiene un límite (algunas igualdades con △ solo se
+  demuestran por elementos o por tabla); la tabla admite hasta 6 conjuntos.
+* El orden/relaciones entre funciones solo usa sus valores en puntos concretos.
+
+---
+
 ## 5. Precedencia y asociatividad de operadores
 
 De mayor a menor prioridad de "unión":
@@ -331,7 +647,7 @@ forma explícita):
 
 ---
 
-## 6. Los tres modos de trabajo
+## 6. Los modos de trabajo
 
 ### 6.1. Editor
 
@@ -381,6 +697,19 @@ Un argumento es válido si no existe ninguna asignación de valores de
 verdad en la que todas las premisas sean verdaderas y la conclusión
 sea falsa. La primera versión lo comprueba por fuerza bruta mediante
 tabla de verdad.
+
+### 6.4. Conjuntos
+
+Dos pestañas: el diagrama de Venn y calculadora de cardinales (sección 4c) y el
+álgebra de conjuntos con demostraciones (sección 4d).
+
+### 6.5. Funciones
+
+Evaluación, composición e inyectividad/sobreyectividad (sección 4e).
+
+### 6.6. Relaciones
+
+Relaciones finitas y por fórmula, equivalencias, clases y órdenes (sección 4f).
 
 ---
 
@@ -467,6 +796,15 @@ resumida (los detalles están en los docstrings de cada módulo):
   ser prefijo de `\subseteq`/`\supseteq`; esto se detecta
   automáticamente comparando la tabla de comandos, no está
   "hardcodeado" (ver sección 4 y `utils/quick_entry.py`).
+* «Conjuntos» es un **modo de primer nivel** (botón 4 de la pantalla de inicio),
+  no una pestaña de la Calculadora: las pestañas de la Calculadora son de lógica
+  proposicional y el modo necesita un diseño de dos zonas con todo el ancho.
+* El cálculo de «Conjuntos» vive en `setcalc/` (sin Qt) y usa un símplex propio en
+  lugar de SciPy: añadir una dependencia pesada para un problema de ≤ 64
+  variables no compensa, y una propagación de cotas simple se demostró insuficiente
+  con cardinales enormes (ver 4c). Se contrasta con fuerza bruta en los tests.
+* El número de versión está en `utils/version.py` (`APP_VERSION`), que usa el
+  diálogo «Acerca de». El proyecto de Android conserva su propio `versionName`.
 
 ---
 
@@ -489,8 +827,14 @@ reescribir lo existente:
   cálculo...): basta con añadir símbolos nuevos a `utils/symbols.py`
   con su propia categoría; el selector, la ayuda y la conversión de
   escritura rápida los recogen automáticamente.
-* Diagramas de Venn y ejercicios interactivos de conjuntos; ampliar el
-  motor `mathexpr/` con lo listado como pendiente en la sección 4b.
+* Ejercicios interactivos de conjuntos; ampliar el motor `mathexpr/` con lo
+  listado como pendiente en la sección 4b.
+* Matemática Discreta: llevar los modos Funciones, Relaciones y el álgebra de
+  conjuntos a Android; relaciones entre funciones con dominio ℚ; clausuras
+  (reflexiva, simétrica, transitiva) y diagramas de Hasse.
+* Modo «Conjuntos»: desigualdades en las condiciones (`|A ∩ B| ≥ 2`), más de 3
+  conjuntos con otra representación visual, exportar el diagrama como imagen,
+  arrastrar los círculos, y llevar el modo a Android.
 * Autocompletado real de comandos mientras se escribe `\cu`, `\su`...
   (por ahora la conversión es solo de sustitución; el diseño de
   `utils/symbols.py` ya deja los datos listos — nombre, categoría — para

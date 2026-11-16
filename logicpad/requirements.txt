@@ -3,5 +3,9 @@
 # Interfaz gráfica
 PySide6>=6.5
 
+# Álgebra simbólica (factorizar, resolver ecuaciones, rangos de funciones):
+# la usan los modos Funciones y Relaciones. Funciona sin conexión.
+sympy>=1.12
+
 # Tests (opcional para uso normal, necesario solo para desarrollo)
 pytest>=7.4

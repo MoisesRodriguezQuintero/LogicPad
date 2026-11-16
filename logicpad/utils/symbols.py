@@ -94,6 +94,8 @@ _SET_SYMBOLS: list[Symbol] = [
     Symbol(r"\setminus", "∖", "Diferencia", "sets"),
     Symbol(r"\emptyset", "∅", "Conjunto vacío", "sets"),
     Symbol(r"\times", "×", "Producto cartesiano", "sets"),
+    Symbol(r"\triangle", "△", "Diferencia simétrica", "sets"),
+    Symbol(r"\complement", "ᶜ", "Complemento (se escribe tras el conjunto: Aᶜ)", "sets"),
     # Delimitadores: no necesitan comando (se escriben directamente desde
     # el teclado); se listan igualmente para que el selector de símbolos
     # y la ayuda documenten la notación completa de conjuntos.
@@ -114,6 +116,12 @@ _RELATION_SYMBOLS: list[Symbol] = [
     Symbol(r"\mapsto", "↦", "Aplicación (f: x ↦ x²)", "relations"),
     Symbol(r"\le", "≤", "Menor o igual", "relations"),
     Symbol(r"\ge", "≥", "Mayor o igual", "relations"),
+    Symbol(r"\neq", "≠", "Distinto", "relations"),
+    Symbol(r"\mid", "∣", "Divide a (a ∣ b)", "relations"),
+    Symbol(r"\equiv", "≡", "Congruente (a ≡ b (mod m))", "relations"),
+    Symbol(r"\iff", "⇔", "Si y solo si", "relations"),
+    Symbol(r"\cdot", "·", "Producto", "relations"),
+    Symbol(r"\pi", "π", "Constante π", "relations"),
     Symbol("=", "=", "Igualdad", "relations", "Se escribe directamente."),
     Symbol("<", "<", "Menor que", "relations", "Se escribe directamente."),
     Symbol(">", ">", "Mayor que", "relations", "Se escribe directamente."),
